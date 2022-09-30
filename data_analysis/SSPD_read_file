@@ -2,7 +2,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import os
 
-file_dir = 'C:\\Users\\serge\\Downloads\\972'           # Path to file
+file_dir = 'D:\Google\Work\Research\SMSPD\smspd_shared\Data\smspd\972'           # Path to file
 file_list = os.listdir(file_dir)
 
 print(file_list)
@@ -119,6 +119,10 @@ for file_l in file_light:
 
     axs[1,1].scatter(current_l/max(current_l), counts_l/max(counts_l))
     axs[1,1].set_title('Norm light current vs cps, lambda=' + str(wavelength))
+
+    axs[1,0].set_yscale('log')
+    axs[0,0].set_yscale('log')
+    axs[0,1].set_yscale('log')
 
 axs[1,0].legend(ID_list)
 plt.show()
