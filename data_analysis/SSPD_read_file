@@ -1,0 +1,105 @@
+import numpy as np
+import matplotlib.pyplot as plt
+import os
+
+file_dir = 'C:\\Users\\serge\\Downloads\\972'           # Path to file
+file_list = os.listdir(file_dir)
+
+print(file_list)
+
+# dark current files
+file_dc = []
+for file in file_list:
+    if file.find('dc') != -1:
+        file_ID = file[0:file.find('_')]
+        file_dc.append([file, file_ID])
+    else:
+        pass
+print(file_dc)
+
+# read data from dc files
+ID_list = []
+Ic_list = []
+fig, axs = plt.subplots(nrows=2, ncols=2, figsize=(13, 9))
+
+for file_d in file_dc:
+    # Data initialization
+    dc = np.loadtxt(file_dir + '\\' + file_d[0])
+
+    ID = file_d[1]      # File ID
+    ID_list.append(ID)
+
+    current_dc = dc[:,0]  # Read column from file with current (x axis)
+    counts_dc = dc[:,1]   # Read column from file with dc_cps (y axis)
+
+    # data filtration
+    #### .... ####
+
+    # Ic search
+    Ic = current_dc[len(current_dc) - 1]
+    Ic_list.append(Ic)
+
+    # Plotting
+    axs[0,1].bar(ID, Ic)
+    axs[0,1].set_title('Critical current vs ID')
+
+    axs[0,0].scatter(current_dc/Ic, counts_dc)
+    axs[0,0].set_title('DC norm current vs ID')
+
+    file_d.append(Ic)
+
+axs[0,0].legend(ID_list)
+print(file_dc)
+
+# 650 nm current files
+wavelength = 1550
+
+file_light = []
+for file in file_list:
+    if file.find(str(wavelength)) != -1:
+        file_ID = file[0:file.find('_')]
+        file_light.append([file, file_ID])
+    else:
+        pass
+
+####
+ID_list = []
+detection_current_list = []
+detection_current_counts_threashold = 1000
+
+for file_l in file_light:
+    for file in file_dc:
+        if file[1] == file_l[1]:
+            file_l.append(file[2])
+        else:
+            pass
+
+    light_650 = np.loadtxt(file_dir + '\\' + file_l[0])
+
+    ID = file_l[1]  # File ID
+    ID_list.append(ID)
+
+    current_l = light_650[:,0]  # Read column from file with current (x axis)
+    counts_l = light_650[:,1]   # Read column from file with dc_cps (y axis)
+
+    n = -1
+    while True:
+        n += 1
+        if counts_l[n] >= detection_current_counts_threashold:
+            detection_current = current_l[n]
+            detection_current_list.append(detection_current)
+            print(current_l[n])
+            break
+        else:
+            pass
+
+    ### data filtration Ic = file_l[2] ###
+
+    axs[1,1].bar(ID, detection_current)
+    axs[1,1].set_title('Detection current vs ID, lambda=' + str(wavelength))
+
+    axs[1,0].scatter(current_l, counts_l)
+    axs[1,0].set_title('Light current vs cps, lambda=' + str(wavelength))
+
+axs[1,0].legend(ID_list)
+plt.show()
