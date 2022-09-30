@@ -2,7 +2,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import os
 
-file_dir = 'C:\\Users\\serge\\Downloads\\972'           # Path to file
+file_dir = 'D:\Google\Work\Research\SMSPD\smspd_shared\Data\smspd\972'           # Path to file
 file_list = os.listdir(file_dir)
 
 print(file_list)
@@ -20,7 +20,7 @@ print(file_dc)
 # read data from dc files
 ID_list = []
 Ic_list = []
-fig, axs = plt.subplots(nrows=2, ncols=2, figsize=(13, 9))
+fig, axs = plt.subplots(nrows=2, ncols=3, figsize=(17, 9))
 
 for file_d in file_dc:
     # Data initialization
@@ -29,8 +29,8 @@ for file_d in file_dc:
     ID = file_d[1]      # File ID
     ID_list.append(ID)
 
-    current_dc = dc[:,0]  # Read column from file with current (x axis)
-    counts_dc = dc[:,1]   # Read column from file with dc_cps (y axis)
+    current_dc = dc[3:len(dc)-2,0]  # Read column from file with current (x axis)
+    counts_dc = dc[3:len(dc)-2,1]   # Read column from file with dc_cps (y axis)
 
     # data filtration
     #### .... ####
@@ -40,19 +40,24 @@ for file_d in file_dc:
     Ic_list.append(Ic)
 
     # Plotting
-    axs[0,1].bar(ID, Ic)
-    axs[0,1].set_title('Critical current vs ID')
+    axs[0,2].bar(ID, Ic)
+    axs[0,2].set_title('Critical current vs ID')
+    axs[0,2].tick_params(axis='x', rotation=20)
 
-    axs[0,0].scatter(current_dc/Ic, counts_dc)
-    axs[0,0].set_title('DC norm current vs ID')
+    axs[0,0].scatter(current_dc, counts_dc)
+    axs[0,0].set_title('DC current vs ID')
+
+    axs[0, 1].scatter(current_dc/Ic, counts_dc)
+    axs[0, 1].set_title('DC norm current vs ID')
 
     file_d.append(Ic)
 
 axs[0,0].legend(ID_list)
+axs[0,1].legend(ID_list)
 print(file_dc)
 
 # 650 nm current files
-wavelength = 1550
+wavelength = 1700
 
 file_light = []
 for file in file_list:
@@ -79,8 +84,8 @@ for file_l in file_light:
     ID = file_l[1]  # File ID
     ID_list.append(ID)
 
-    current_l = light_650[:,0]  # Read column from file with current (x axis)
-    counts_l = light_650[:,1]   # Read column from file with dc_cps (y axis)
+    current_l = light_650[3:len(light_650)-2,0]   # Read column from file with current (x axis)
+    counts_l = light_650[3:len(light_650)-2, 1]    # Read column from file with dc_cps (y axis)
 
     n = -1
     while True:
@@ -94,12 +99,30 @@ for file_l in file_light:
             pass
 
     ### data filtration Ic = file_l[2] ###
+    n = -1
+    a = file_l[2]*0.9
+    while True:
+        n += 1
+        if current_l[n] <= a:
+            pass
+        else:
+            break
+    current_l = current_l[:n]
+    counts_l = counts_l[:n]
 
-    axs[1,1].bar(ID, detection_current)
-    axs[1,1].set_title('Detection current vs ID, lambda=' + str(wavelength))
+    axs[1,2].bar(ID, detection_current)
+    axs[1,2].set_title('Detection current vs ID, lambda=' + str(wavelength))
+    axs[1,2].tick_params(axis='x', rotation=20)
 
     axs[1,0].scatter(current_l, counts_l)
     axs[1,0].set_title('Light current vs cps, lambda=' + str(wavelength))
+
+    axs[1,1].scatter(current_l/max(current_l), counts_l/max(counts_l))
+    axs[1,1].set_title('Norm light current vs cps, lambda=' + str(wavelength))
+
+    axs[1,0].set_yscale('log')
+    axs[0,0].set_yscale('log')
+    axs[0,1].set_yscale('log')
 
 axs[1,0].legend(ID_list)
 plt.show()
