@@ -1,48 +1,80 @@
 import numpy as np
 import matplotlib.pyplot as plt
 import os
+from scipy.optimize import curve_fit
 
-file_dir = 'D:\Google\Work\Research\SMSPD\smspd_shared\Data\smspd\972'           # Path to file
+def sigmoid(x, L, x0, k, b):
+    y = L / (1 + np.exp(-k*(x-x0))) + b
+    return (y)
+
+def sortFunction(file_name):
+    return int(file_name[file_name.find('#') + 1 : file_name.find('#') + file_name[file_name.find('#'):].find('_')])
+
+
+# add through internet connection
+def kill_desktop_ini(root_dir):
+
+    for (root, dirs, files) in os.walk(root_dir):
+
+        if len(files) > 0:
+            for file_name in files:
+                if file_name.endswith('.ini'):
+                    os.remove(f'{root}/{file_name}')
+
+    
+batch = 972
+wavelength = 650
+dir = 'C:\\Users\\pizol\\downloads\\smspd\\'
+
+file_dir = dir + str(batch)           # Path to file
+fig, axs = plt.subplots(nrows=3, ncols=3, figsize=(25, 18), frameon=True, layout='constrained')
+fig.suptitle('Batch number: ' + str(batch), fontsize=30)
+
 file_list = os.listdir(file_dir)
+for file in file_list:
+    if file.find('972_output_data') != -1:
+        file_list.remove(file)
 
-print(file_list)
+
+file_list.sort(key = sortFunction)
 
 # dark current files
 file_dc = []
 for file in file_list:
     if file.find('dc') != -1:
-        file_ID = file[0:file.find('_')]
+        a = file.find('dc')
+        file_ID = file[:a-1]
         file_dc.append([file, file_ID])
     else:
         pass
-print(file_dc)
 
 # read data from dc files
 ID_list = []
+bar_list = []
 Ic_list = []
-fig, axs = plt.subplots(nrows=2, ncols=3, figsize=(17, 9))
+bar = []
 
 for file_d in file_dc:
     # Data initialization
     dc = np.loadtxt(file_dir + '\\' + file_d[0])
 
     ID = file_d[1]      # File ID
+    a = ID.find('#')
+    b = ID[a:].find('_')
     ID_list.append(ID)
+
 
     current_dc = dc[3:len(dc)-2,0]  # Read column from file with current (x axis)
     counts_dc = dc[3:len(dc)-2,1]   # Read column from file with dc_cps (y axis)
-
-    # data filtration
-    #### .... ####
 
     # Ic search
     Ic = current_dc[len(current_dc) - 1]
     Ic_list.append(Ic)
 
     # Plotting
-    axs[0,2].bar(ID, Ic)
-    axs[0,2].set_title('Critical current vs ID')
-    axs[0,2].tick_params(axis='x', rotation=20)
+    bar_list.append(axs[0, 2].bar(ID[:a+b], Ic))
+    axs[0, 2].set_title('Critical current vs ID')
+    axs[0, 2].tick_params(axis='x', rotation=0, labelsize=6)
 
     axs[0,0].scatter(current_dc, counts_dc)
     axs[0,0].set_title('DC current vs ID')
@@ -52,26 +84,38 @@ for file_d in file_dc:
 
     file_d.append(Ic)
 
-axs[0,0].legend(ID_list)
-axs[0,1].legend(ID_list)
-print(file_dc)
+axs[0,0].legend(ID_list, fontsize=6)
+axs[0,1].legend(ID_list, fontsize=6)
 
+for bar in bar_list:
+    axs[0,2].bar_label(bar, fmt='%.1f', label_type='center')
 # 650 nm current files
-wavelength = 1700
-
 file_light = []
+
+# Sigmoid fit of selected functions
+
 for file in file_list:
     if file.find(str(wavelength)) != -1:
-        file_ID = file[0:file.find('_')]
+
+        a = file.find(str(wavelength))
+        file_ID = file[:a-1]
         file_light.append([file, file_ID])
     else:
         pass
 
 ####
 ID_list = []
-detection_current_list = []
-detection_current_counts_threashold = 1000
+ID_QE_list = []
+ID_QE_list_ = []
+bar_list_1 = []
+bar_list_2 = []
 
+list_to_out = []
+list_to_out.append(['Detector ID,', 'Critical current,', 'Detection current,', 'IQE'])
+
+
+detection_current_list = []
+detection_current_counts_threashold = 100
 for file_l in file_light:
     for file in file_dc:
         if file[1] == file_l[1]:
@@ -84,8 +128,17 @@ for file_l in file_light:
     ID = file_l[1]  # File ID
     ID_list.append(ID)
 
+    #if ID in ID_list:
+    #    break
+    #Else:
+    #
+
     current_l = light_650[3:len(light_650)-2,0]   # Read column from file with current (x axis)
     counts_l = light_650[3:len(light_650)-2, 1]    # Read column from file with dc_cps (y axis)
+
+    i = np.where(current_l == 0)
+    current_l = np.delete(current_l, i)
+    counts_l = np.delete(counts_l, i)
 
     n = -1
     while True:
@@ -93,14 +146,13 @@ for file_l in file_light:
         if counts_l[n] >= detection_current_counts_threashold:
             detection_current = current_l[n]
             detection_current_list.append(detection_current)
-            print(current_l[n])
             break
         else:
             pass
 
     ### data filtration Ic = file_l[2] ###
     n = -1
-    a = file_l[2]*0.9
+    a = file_l[2]*0.90
     while True:
         n += 1
         if current_l[n] <= a:
@@ -110,19 +162,79 @@ for file_l in file_light:
     current_l = current_l[:n]
     counts_l = counts_l[:n]
 
-    axs[1,2].bar(ID, detection_current)
-    axs[1,2].set_title('Detection current vs ID, lambda=' + str(wavelength))
-    axs[1,2].tick_params(axis='x', rotation=20)
+    a, c = np.unique(current_l, return_counts=True)
+    dup_index = np.where(c > 1)[0]
 
-    axs[1,0].scatter(current_l, counts_l)
-    axs[1,0].set_title('Light current vs cps, lambda=' + str(wavelength))
+    current_l = a
+    counts_l = np.delete(counts_l, dup_index)
 
-    axs[1,1].scatter(current_l/max(current_l), counts_l/max(counts_l))
-    axs[1,1].set_title('Norm light current vs cps, lambda=' + str(wavelength))
+    if len(counts_l) < 3:
+        pass
+    else:
+        a = ID.find('#')
+        b = ID[a:].find('_')
 
-    axs[1,0].set_yscale('log')
-    axs[0,0].set_yscale('log')
-    axs[0,1].set_yscale('log')
+        current_l_norm = current_l / max(current_l)
+        counts_l_norm = counts_l / max(counts_l)
 
-axs[1,0].legend(ID_list)
+        try:
+            p0 = [max(counts_l_norm), np.median(current_l_norm), 3, min(counts_l_norm)]
+            popt, vcov = curve_fit(sigmoid, current_l_norm, counts_l_norm, p0, method='dogbox')
+            x_range = np.linspace(current_l_norm[0], 2, 100)
+            saturation_value = max(sigmoid(x_range, *popt))
+            IQE = sigmoid(current_l_norm[-1], *popt)/saturation_value
+
+            axs[2,0].plot(x_range, sigmoid(x_range, *popt))
+            axs[2,0].scatter(current_l_norm, counts_l_norm)
+            axs[2,0].set_title('Sigmoidal fit of cps vs current, lambda=' + str(wavelength))
+            #axs[2,0].scatter(popt[1], sigmoid((popt[1]), *popt))
+            ID_QE_list.append(ID + '_sigm_fit')
+            ID_QE_list.append(ID)
+            #ID_QE_list.append('Inflection point of ' + ID[:a+b])
+
+            axs[2,1].plot(x_range, sigmoid(x_range, *popt)/saturation_value)
+            axs[2,1].scatter(current_l_norm, counts_l_norm/saturation_value)
+            axs[2,1].set_title('Re-norm sigmoidal fit of cps vs current, lambda=' + str(wavelength))
+            ID_QE_list_.append(ID + '_sigm_fit')
+            ID_QE_list_.append(ID)
+
+            bar_list_2.append(axs[2,2].bar(ID[:a + b], IQE))
+            axs[2, 2].set_title('IQE, lambda=' + str(wavelength))
+            axs[2,2].tick_params(axis='x', rotation=0, labelsize=8)
+
+            list_to_out.append([ID, Ic, detection_current,IQE])
+        except RuntimeError:
+            pass
+
+        bar_list_1.append(axs[1, 2].bar(ID[:a + b], detection_current))
+        axs[1, 2].set_title('Detection current vs ID, lambda=' + str(wavelength))
+        axs[1, 2].tick_params(axis='x', rotation=0, labelsize=8)
+
+        axs[1, 1].scatter(current_l_norm, counts_l_norm)
+        axs[1, 1].set_title('Norm light current vs cps, lambda=' + str(wavelength))
+
+        axs[1, 0].scatter(current_l, counts_l)
+        axs[1, 0].set_title('Light current vs cps, lambda=' + str(wavelength))
+
+
+
+axs[1,0].legend(ID_list, fontsize=6)
+axs[1,1].legend(ID_list,  fontsize=6)
+axs[2,0].legend(ID_QE_list,  fontsize=6, loc='lower right')
+axs[2,1].legend(ID_QE_list_,  fontsize=6, loc='lower right')
+
+
+for bar in bar_list_1:
+    axs[1,2].bar_label(bar, fmt='%.1f', label_type='center')
+
+for bar in bar_list_2:
+    axs[2,2].bar_label(bar, fmt='%.2f', label_type='center')
+
+print(list_to_out)
+data_out = np.column_stack(list_to_out)
+
+
+np.savetxt(file_dir + '\\' + str(batch) + '_output_data.txt', np.transpose([data_out[0], data_out[1], data_out[2], data_out[3]]), fmt='%s')
+
 plt.show()
+
